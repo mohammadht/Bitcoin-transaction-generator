@@ -112,7 +112,7 @@ def generate_transactions(pattern, loaded_params_input_output, loaded_params_int
     glist_interval = generate_intervals(loaded_params_interval, tx_count)
     glist_time = generate_time(glist_interval)
     glist_txhash = generate_txhash(tx_count)
-    df_generated = pd.DataFrame({'tx_hash':glist_txhash, 'time':glist_time, 'interval':glist_interval, 'size':glist_size, 
+    df_generated = pd.DataFrame({'tx_hash':glist_txhash, 'time_millisec':glist_time, 'interval':glist_interval, 'size':glist_size, 
                                  'input count': glist_input, 'output count':glist_output})
     df_generated['input/output ratio'] = df_generated['input count'] / df_generated['output count']
     end_txs = time.time()
@@ -261,53 +261,43 @@ def generate_outputs(loaded_params_output, tx_count, include_spikes):
     print(f"{len(glist_output)} tx output counts generated in {end_outputs - start_outputs} seconds.")
     return glist_output
 
+# Function to load the preprocessed size data with cumulative probabilities
+def load_cumulative_size_data(file_path):
+    size_cumulative_prob_lookup = {}    
+    # Load the data
+    df_loaded = pd.read_csv(file_path, sep='\t', header=0)
+    # Iterate through the rows and parse JSON data from the 'unique_sizes' and 'cumulative_probs' columns
+    for _, row in df_loaded.iterrows():
+        input_count = row['input count']
+        output_count = row['output count']
+        unique_sizes = json.loads(row['unique_sizes'])
+        cumulative_probs = np.array(json.loads(row['cumulative_probs']))    
+        # Store in the lookup dictionary
+        size_cumulative_prob_lookup[(input_count, output_count)] = (unique_sizes, cumulative_probs)
+    return size_cumulative_prob_lookup
+
+# Function to find size
+def find_size_with_cumulative_probabilities(generated_input, generated_output, size_cumulative_prob_lookup):
+    key = (generated_input, generated_output)  
+    if key in size_cumulative_prob_lookup:
+        unique_sizes, cumulative_probs = size_cumulative_prob_lookup[key]    
+        # Generate a random number and find the index in the cumulative probabilities
+        rand_value = random.random()
+        index = np.searchsorted(cumulative_probs, rand_value)   
+        return unique_sizes[index]
+    # Fallback in case no matching sizes are found
+    return 306
+
 def generate_size(glist_input, glist_output):
     print("Generating tx sizes...")
     start_size = time.time()
-    df_loaded = pd.read_csv('bitcoin-size.tsv', sep='\t', header=0)
-    df_loaded['size'] = df_loaded['size'].apply(json.loads)
-    # Convert the DataFrame to a dictionary for faster lookups
-    size_lookup = df_loaded.set_index(['input count', 'output count'])['size'].to_dict()
+    size_cumulative_prob_lookup = load_cumulative_size_data('bitcoin-size-cumulative.tsv')
+    glist_input_np = np.array(glist_input)
+    glist_output_np = np.array(glist_output)
     glist_size = []
-
-    def find_size(generated_input, generated_output):
-        # Direct lookup
-        key = (generated_input, generated_output)
-        if key in size_lookup:
-            return random.choice(size_lookup[key])
-        # Try decrementing output count only if necessary
-        temp_output_count = generated_output
-        while temp_output_count > 0:
-            temp_output_count -= 1
-            key = (generated_input, temp_output_count)
-            if key in size_lookup:
-                return random.choice(size_lookup[key])
-        # Try decrementing input count only if necessary
-        temp_input_count = generated_input
-        while temp_input_count > 0:
-            temp_input_count -= 1
-            key = (temp_input_count, generated_output)
-            if key in size_lookup:
-                return random.choice(size_lookup[key])
-        # Try decrementing both input and output counts simultaneously
-        temp_input_count = generated_input
-        temp_output_count = generated_output
-        while temp_input_count > 0 and temp_output_count > 0:
-            temp_input_count -= 1
-            temp_output_count -= 1
-            key = (temp_input_count, temp_output_count)
-            if key in size_lookup:
-                return random.choice(size_lookup[key])
-        return None  # Return None if no match is found
-    
-    # Loop through input-output pairs and find sizes
-    for generated_input, generated_output in zip(glist_input, glist_output):
-        size = find_size(generated_input, generated_output)
-        if size is not None:
-            glist_size.append(size)
-        else:
-            # If no valid size is found, append a default value
-            glist_size.append(308)
+    for inp, out in zip(glist_input_np, glist_output_np):
+        size = find_size_with_cumulative_probabilities(inp, out, size_cumulative_prob_lookup)
+        glist_size.append(size)
     end_size = time.time()
     print(f"{len(glist_size)} tx sizes generated in {end_size - start_size} seconds.")
     return glist_size
@@ -426,8 +416,8 @@ def generate_utxos(txs_file_path, loaded_params_age):
     # Process each row in the tx DataFrame
     for idx, row in df.iterrows():
         tx_hash = row['tx_hash']
-        tx_time = row['time']
-        time_index = row['time'] // 1000
+        tx_time = row['time_millisec']
+        time_index = row['time_millisec'] // 1000
         input_count = row['input count']
         output_count = row['output count']
 
@@ -468,8 +458,8 @@ def generate_utxos(txs_file_path, loaded_params_age):
 
             input_list.append([tx_hash, found_utxo, tx_time, utxo_age])
 
-    utxo_df = pd.DataFrame(utxo_list, columns=['utxo', 'time(millisec.)', 'spent'])
-    input_df = pd.DataFrame(input_list, columns=['tx_hash', 'spending_utxo', 'spending_time(millisec.)', 'utxo_age(sec.)'])
+    utxo_df = pd.DataFrame(utxo_list, columns=['utxo', 'time_millisec', 'spent'])
+    input_df = pd.DataFrame(input_list, columns=['tx_hash', 'spending_utxo', 'spending_time_millisec', 'utxo_age_sec'])
     end_io = time.time()
     print(f"Transaction input and output files generated in {end_io - start_io} seconds.")
     return utxo_df, input_df
