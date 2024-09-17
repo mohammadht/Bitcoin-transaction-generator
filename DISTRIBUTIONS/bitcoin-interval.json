@@ -1,0 +1,6 @@
+[
+    {"fraction": 0.772116017571089, "distribution": "nbinom", "params_0": 188, "params_1": 0.9989630633482934, "min_value": 0, "max_value": 3},
+    {"fraction": 0.046337094055535, "distribution": "poisson", "params_0": 11.020426924558347, "params_1": 0, "min_value": 4, "max_value": 16},
+    {"fraction": 0.055545810334968, "distribution": "planck", "params_0": 0.0442964473516096, "params_1": 17, "min_value": 17, "max_value": 100},
+    {"fraction": 0.126004728693363, "distribution": "geom", "params_0": 0.0008848490739968428, "params_1": 99, "min_value": 100, "max_value": 100000}
+]
