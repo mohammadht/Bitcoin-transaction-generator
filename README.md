@@ -9,8 +9,7 @@ Before running this application, make sure you have the following installed:
   >- scipy (for statistical distributions)
 
 ## Run the application:
-### On Windows:
-- python bitcoin-generator.py
 ### On Mac/Linux:
 - python3 bitcoin-generator.py
-
+### On Windows:
+- python bitcoin-generator.py
