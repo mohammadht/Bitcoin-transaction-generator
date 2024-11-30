@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 import json
 import random
-from scipy.stats import zipf, yulesimon, planck, nbinom, poisson, geom, randint
+from scipy.stats import zipf, yulesimon, planck, nbinom, poisson, geom, randint, logser
 
 def get_input_values():
     pattern = pattern_selection.get()  
@@ -71,21 +71,21 @@ def task(progress_window, pattern, tx_count, input_dist, output_dist, include_sp
             with open(output_file_path, 'r') as file_output:
                 loaded_params_input_output.append(json.load(file_output))
         interval_file_path = f"DISTRIBUTIONS/bitcoin-interval.json"
-        age_file_path = f"DISTRIBUTIONS/bitcoin-utxo-age.json"
+        age_file_path = f"DISTRIBUTIONS/bitcoin-txo-lifespan.json"
         with open(interval_file_path, 'r') as file_interval:
             loaded_params_interval = json.load(file_interval)
         with open(age_file_path, 'r') as file_age:
             loaded_params_age = json.load(file_age)
 
         df_generated = generate_transactions(pattern, loaded_params_input_output, loaded_params_interval, int(tx_count), include_spikes)
-        txs_file_path = f'results/bitcoin-generated-{tx_count}.tsv'
+        txs_file_path = f'results/tx-features-{tx_count}.tsv'
         df_generated.to_csv(txs_file_path, sep='\t', index=False)
         if include_utxo == True:
             df_utxo, df_spent_utxo = generate_utxos(txs_file_path, loaded_params_age)
-            utxos_file_path = f'results/bitcoin-utxo-{tx_count}.tsv'
-            df_utxo.to_csv(utxos_file_path, sep='\t', index=False)
-            spent_utxo_file_path = f'results/bitcoin-inputs-{tx_count}.tsv'
-            df_spent_utxo.to_csv(spent_utxo_file_path, sep='\t', index=False)
+            txo_status_file_path = f'results/txo-status-{tx_count}.tsv'
+            df_utxo.to_csv(txo_status_file_path, sep='\t', index=False)
+            tx_inputs_file_path = f'results/tx-inputs-{tx_count}.tsv'
+            df_spent_utxo.to_csv(tx_inputs_file_path, sep='\t', index=False)
         end_time = time.time()
         duration = end_time - start_time
         print(f"All transactions generated and wrote to results/ directory in {duration:.2f} seconds.")
@@ -335,7 +335,7 @@ def generate_within_range(distribution, param0, param1, size, min_val, max_val):
         if distribution == 'nbinom':
             dist_time = eval(f'{distribution}')
             sample = dist_time.rvs(int(param0), param1, size=size)
-        elif distribution == 'poisson' or 'geom' or 'randint' or 'planck':
+        elif distribution == 'poisson' or 'geom' or 'randint' or 'planck' or 'logser':
             dist_interval = eval(f'{distribution}')
             sample = dist_interval.rvs(param0, param1, size=size)
         else:
@@ -405,61 +405,60 @@ def generate_utxos(txs_file_path, loaded_params_age):
     utxo_list = []
     # input entries for bitcoin-inputs.tsv
     input_list = []
-    # Dictionary for fast UTXO lookup by time (bucketed by time for faster lookups)
+    # Dictionary for fast UTXO lookup by time
     utxo_by_time = {}
     # Store UTXO index in utxo_list for easy spent marking
     utxo_index_lookup = {}
-
     glist_age = generate_age(df['input count'].sum(),loaded_params_age)
-    age_idx= 0
-
+    age_idx = 0
     # Process each row in the tx DataFrame
     for idx, row in df.iterrows():
         tx_hash = row['tx_hash']
         tx_time = row['time_millisec']
-        time_index = row['time_millisec'] // 1000
+        time_index = row['time_millisec'] // (1000)
         input_count = row['input count']
         output_count = row['output count']
-
-        # Process outputs: generate utxo rows for bitcoin-utxo.tsv
+        txo_idx = 0
+        # Process outputs: generate utxo rows for txo-status.tsv
         for _ in range(output_count):
-            utxo = generate_random_utxo()
-            utxo_list.append([utxo, tx_time, False])
+            #utxo = generate_random_utxo()
+            #utxo_list.append([utxo, tx_time, False])
+            utxo_list.append([tx_hash, txo_idx, tx_time, False])
             # Store UTXO by time for quick lookup
             if time_index not in utxo_by_time:
-                utxo_by_time[time_index] = []
-            
+                utxo_by_time[time_index] = []   
             # Track the index in utxo_list for spent status updating
-            utxo_idx = len(utxo_list) - 1
-            utxo_by_time[time_index].append((utxo, utxo_idx))
-            utxo_index_lookup[(utxo, time_index)] = utxo_idx  # Track the index
-
-        # Process inputs: generate input rows for bitcoin-inputs.tsv
+            utxo_list_idx = len(utxo_list) - 1
+            utxo_by_time[time_index].append(((tx_hash, txo_idx), utxo_list_idx))
+            utxo_index_lookup[((tx_hash, txo_idx), time_index)] = utxo_list_idx  # Track the index
+            txo_idx += 1
+        # Process inputs: generate input rows for tx-inputs.tsv
         for _ in range(input_count):
             utxo_age = glist_age[age_idx]
-            age_idx += 1
-            
+            age_idx += 1  
             # Calculate potential_utxo_time
-            potential_utxo_time = tx_time // 1000 - utxo_age
-
+            potential_utxo_time = (tx_time // (1000)) - (utxo_age * 10 * 60) #convert utxo age from block number to block time in seconds 
             # Find a valid unspent UTXO
-            found_utxo = None
+            found_txo_idx = None
+            found_tx_hash = None
             if potential_utxo_time in utxo_by_time:
                 # Check for unspent UTXO in the bucket
-                for i, (utxo, utxo_idx) in enumerate(utxo_by_time[potential_utxo_time]):
+                for (tx_hash, txo_idx), utxo_list_idx in utxo_by_time[potential_utxo_time]:
                     # Check if it's unspent by verifying against utxo_list
-                    if not utxo_list[utxo_idx][2]:  # [2] is the 'spent' field in utxo_list
-                        found_utxo = utxo
-                        utxo_list[utxo_idx][2] = True  # Mark the corresponding UTXO as spent
+                    if not utxo_list[utxo_list_idx][3]:  # [3] is the 'spent' field in utxo_list
+                        found_tx_hash = tx_hash
+                        found_txo_idx = txo_idx
+                        utxo_list[utxo_list_idx][3] = True  # Mark the corresponding UTXO as spent
                         break
-
-            if found_utxo is None:
-                found_utxo = generate_random_utxo()
-
-            input_list.append([tx_hash, found_utxo, tx_time, utxo_age])
-
-    utxo_df = pd.DataFrame(utxo_list, columns=['utxo', 'time_millisec', 'spent'])
-    input_df = pd.DataFrame(input_list, columns=['tx_hash', 'spending_utxo', 'spending_time_millisec', 'utxo_age_sec'])
+            if found_txo_idx is None: #if the spent txo is older than our utxo list
+                #found_utxo = generate_random_utxo()
+                found_txo_idx = random.randint(0,4)
+                found_tx_hash = generate_random_hash()
+            input_list.append([found_tx_hash, found_txo_idx, tx_time, utxo_age])
+    # Check if any UTXOs were marked as spent
+    spent_utxos = [utxo for utxo in utxo_list if utxo[3] is True]
+    utxo_df = pd.DataFrame(utxo_list, columns=['tx_hash', 'txo_idx', 'time_millisec', 'spent'])
+    input_df = pd.DataFrame(input_list, columns=['tx_hash', 'spending_txo_idx', 'spending_time_millisec', 'txo_lifespan_blocks'])
     end_io = time.time()
     print(f"Transaction input and output files generated in {end_io - start_io} seconds.")
     return utxo_df, input_df
@@ -468,8 +467,7 @@ def generate_age(txo_count, loaded_params_age):
     print("Generating utxo ages...")
     start_ages = time.time()
     glist_age = []
-    keys_to_iterate = ["data_0_1","data_2_3","data_4_5","data_6_9", "data_10","data_100","data_1k",
-    "data_10k","data_100k","data_1m","data_10m","data_100m"]
+    keys_to_iterate = ["data_0_5","data_6_end"]
     for key in keys_to_iterate:
         distribution_name = loaded_params_age[key]['distribution']
         param_0 = loaded_params_age[key]['params_0']
