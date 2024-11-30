@@ -1,0 +1,4 @@
+{
+    "data_0_5": {"fraction": 0.328339231882631, "distribution": "nbinom", "params_0": 1, "params_1": 0.4566112382398509, "min_value": 0, "max_value": 5},
+    "data_6_end": {"fraction": 0.671660768117369, "distribution": "logser", "params_0": 0.9999789540467482, "params_1": 2, "min_value": 6, "max_value": 758818}
+}
