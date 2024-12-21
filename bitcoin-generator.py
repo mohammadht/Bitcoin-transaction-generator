@@ -112,9 +112,8 @@ def generate_transactions(pattern, loaded_params_input_output, loaded_params_int
     glist_interval = generate_intervals(loaded_params_interval, tx_count)
     glist_time = generate_time(glist_interval)
     glist_txhash = generate_txhash(tx_count)
-    df_generated = pd.DataFrame({'tx_hash':glist_txhash, 'time_millisec':glist_time, 'interval':glist_interval, 'size':glist_size, 
+    df_generated = pd.DataFrame({'tx_hash':glist_txhash, 'time_millisec':glist_time, 'size':glist_size, 
                                  'input count': glist_input, 'output count':glist_output})
-    df_generated['input/output ratio'] = df_generated['input count'] / df_generated['output count']
     end_txs = time.time()
     print(f"All txs generated in {end_txs - start_txs}.")
     return df_generated
@@ -443,10 +442,10 @@ def generate_utxos(txs_file_path, loaded_params_age):
             found_tx_hash = None
             if potential_utxo_time in utxo_by_time:
                 # Check for unspent UTXO in the bucket
-                for (tx_hash, txo_idx), utxo_list_idx in utxo_by_time[potential_utxo_time]:
-                    # Check if it's unspent by verifying against utxo_list
-                    if not utxo_list[utxo_list_idx][3]:  # [3] is the 'spent' field in utxo_list
-                        found_tx_hash = tx_hash
+                for (producing_tx_hash, txo_idx), utxo_list_idx in utxo_by_time[potential_utxo_time]:
+                    # Check if it's unspent and it is not from the same transaction by verifying against utxo_list
+                    if (not utxo_list[utxo_list_idx][3]) and (producing_tx_hash != tx_hash):  # [3] is the 'spent' field in utxo_list
+                        found_tx_hash = producing_tx_hash
                         found_txo_idx = txo_idx
                         utxo_list[utxo_list_idx][3] = True  # Mark the corresponding UTXO as spent
                         break
@@ -454,11 +453,11 @@ def generate_utxos(txs_file_path, loaded_params_age):
                 #found_utxo = generate_random_utxo()
                 found_txo_idx = random.randint(0,4)
                 found_tx_hash = generate_random_hash()
-            input_list.append([found_tx_hash, found_txo_idx, tx_time, utxo_age])
+            input_list.append([tx_hash, tx_time, found_tx_hash, found_txo_idx, utxo_age])
     # Check if any UTXOs were marked as spent
     spent_utxos = [utxo for utxo in utxo_list if utxo[3] is True]
-    utxo_df = pd.DataFrame(utxo_list, columns=['tx_hash', 'txo_idx', 'time_millisec', 'spent'])
-    input_df = pd.DataFrame(input_list, columns=['tx_hash', 'spending_txo_idx', 'spending_time_millisec', 'txo_lifespan_blocks'])
+    utxo_df = pd.DataFrame(utxo_list, columns=['producing_tx_hash', 'txo_idx', 'producing_time_millisec', 'spent'])
+    input_df = pd.DataFrame(input_list, columns=['consuming_tx_hash', 'consuming_time_millisec', 'producing_tx_hash', 'txo_idx', 'txo_lifespan_blocks'])
     end_io = time.time()
     print(f"Transaction input and output files generated in {end_io - start_io} seconds.")
     return utxo_df, input_df
