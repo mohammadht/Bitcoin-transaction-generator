@@ -89,7 +89,6 @@ def task(progress_window, pattern, tx_count, input_dist, output_dist, include_sp
         end_time = time.time()
         duration = end_time - start_time
         print(f"All transactions generated and wrote to results/ directory in {duration:.2f} seconds.")
-
         if running:
             progress_window.destroy()
             messagebox.showinfo("Done!", f"All transactions generated and wrote to results/ directory in {duration:.2f} seconds.")
@@ -349,8 +348,10 @@ def generate_time(glist_interval):
     start_times = time.time()
     glist_time = []
     # Get the current time in milliseconds
-    current_time_ms = int(time.time() * 1000)
-    glist_time.append(current_time_ms)
+    #current_time_ms = int(time.time() * 1000)
+    #glist_time.append(current_time_ms)
+    # Set the first tx time to 0
+    glist_time.append(0) 
     # Fill glist_time by adding the next transaction inter-arrival time to the previous timestamp
     for i in range(len(glist_interval) - 1):
         next_time = glist_time[-1] + glist_interval[i + 1]
@@ -414,7 +415,7 @@ def generate_utxos(txs_file_path, loaded_params_age):
     for idx, row in df.iterrows():
         tx_hash = row['tx_hash']
         tx_time = row['time_millisec']
-        time_index = row['time_millisec'] // (1000)
+        time_index = row['time_millisec'] // 1000 # Convert to seconds
         input_count = row['input count']
         output_count = row['output count']
         txo_idx = 0
@@ -436,28 +437,32 @@ def generate_utxos(txs_file_path, loaded_params_age):
             utxo_age = glist_age[age_idx]
             age_idx += 1  
             # Calculate potential_utxo_time
-            potential_utxo_time = (tx_time // (1000)) - (utxo_age * 10 * 60) #convert utxo age from block number to block time in seconds 
+            potential_utxo_time = (tx_time // 1000) - (utxo_age * 10 * 60) #convert utxo age from block number to block time in seconds 
             # Find a valid unspent UTXO
             found_txo_idx = None
             found_tx_hash = None
-            if potential_utxo_time in utxo_by_time:
+            while (potential_utxo_time >= 0 and found_txo_idx is None):
                 # Check for unspent UTXO in the bucket
-                for (producing_tx_hash, txo_idx), utxo_list_idx in utxo_by_time[potential_utxo_time]:
-                    # Check if it's unspent and it is not from the same transaction by verifying against utxo_list
-                    if (not utxo_list[utxo_list_idx][3]) and (producing_tx_hash != tx_hash):  # [3] is the 'spent' field in utxo_list
-                        found_tx_hash = producing_tx_hash
-                        found_txo_idx = txo_idx
-                        utxo_list[utxo_list_idx][3] = True  # Mark the corresponding UTXO as spent
-                        break
-            if found_txo_idx is None: #if the spent txo is older than our utxo list
+                if potential_utxo_time in utxo_by_time:
+                    for (producing_tx_hash, txo_idx), utxo_list_idx in utxo_by_time[potential_utxo_time]:
+                        # Check if it's unspent and it is not from the same transaction by verifying against utxo_list
+                        if (not utxo_list[utxo_list_idx][3]) and (producing_tx_hash != tx_hash):
+                            found_tx_hash = producing_tx_hash
+                            found_txo_idx = txo_idx
+                            utxo_list[utxo_list_idx][3] = True
+                            break
+                    if found_txo_idx is not None:
+                        break  
+                potential_utxo_time -= 1 #if all the utxos are spent, check the next block
+            if potential_utxo_time < 0: #if the spent txo is older than our utxo list
                 #found_utxo = generate_random_utxo()
                 found_txo_idx = random.randint(0,4)
                 found_tx_hash = generate_random_hash()
-            input_list.append([tx_hash, tx_time, found_tx_hash, found_txo_idx, utxo_age])
+            input_list.append([tx_hash, tx_time, found_tx_hash, found_txo_idx])
     # Check if any UTXOs were marked as spent
     spent_utxos = [utxo for utxo in utxo_list if utxo[3] is True]
     utxo_df = pd.DataFrame(utxo_list, columns=['producing_tx_hash', 'txo_idx', 'producing_time_millisec', 'spent'])
-    input_df = pd.DataFrame(input_list, columns=['consuming_tx_hash', 'consuming_time_millisec', 'producing_tx_hash', 'txo_idx', 'txo_lifespan_blocks'])
+    input_df = pd.DataFrame(input_list, columns=['consuming_tx_hash', 'consuming_time_millisec', 'producing_tx_hash', 'txo_idx'])
     end_io = time.time()
     print(f"Transaction input and output files generated in {end_io - start_io} seconds.")
     return utxo_df, input_df
