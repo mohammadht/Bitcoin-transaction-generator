@@ -1,4 +1,4 @@
-# Bitcoin-transaction-generator
+# UTXO-based transaction workload generator
 
 ## Prerequisites
 Before running this application, make sure you have the following installed:
