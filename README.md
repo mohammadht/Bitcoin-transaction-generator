@@ -10,6 +10,6 @@ Before running this application, make sure you have the following installed:
 
 ## Run the application:
 ### On Mac/Linux:
-- python3 bitcoin-generator.py
+- python3 generator.py
 ### On Windows:
-- python bitcoin-generator.py
+- python generator.py
