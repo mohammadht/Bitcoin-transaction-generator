@@ -7,6 +7,7 @@ Before running this application, make sure you have the following installed:
   >- pandas (for data manipulation and analysis)
   >- numpy (for numerical computations)
   >- scipy (for statistical distributions)
+  >- tk (for visualization) 
 
 ## Run the application:
 ### On Mac/Linux:
