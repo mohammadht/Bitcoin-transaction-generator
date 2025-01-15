@@ -509,7 +509,7 @@ def on_select_and_update_label(event, result_label, combo_box, file_type):
                 loaded_params = json.load(file)
                 # Update the label with the content
                 if (file_type != "real"):
-                    result_label.config(text=f'Distribution={loaded_params['distribution']} | Parameter={loaded_params['params_0']}')
+                    result_label.config(text=f"Distribution={loaded_params['distribution']} | Parameter={loaded_params['params_0']}")
         else:
             result_label.config(text="File not found.")
     except Exception as e:
