@@ -502,14 +502,11 @@ def on_select_and_update_label(event, result_label, combo_box, file_type):
             file_path = f"DISTRIBUTIONS/input_count/{file_type}-{selected_item}.json"
         elif file_type == 'output': #file_type is output
             file_path = f"DISTRIBUTIONS/output_count/{file_type}-{selected_item}.json"
-        else: #file_type is real
-            file_path = f"DISTRIBUTIONS/REAL_IO_PROBABILITIES/{file_type}-{selected_item}.json"
         if os.path.exists(file_path):
             with open(file_path, 'r') as file:
                 loaded_params = json.load(file)
                 # Update the label with the content
-                if (file_type != "real"):
-                    result_label.config(text=f"Distribution={loaded_params['distribution']} | Parameter={loaded_params['params_0']}")
+                result_label.config(text=f'Distribution:{loaded_params['distribution']}, Parameter:{loaded_params['params_0']}')
         else:
             result_label.config(text="File not found.")
     except Exception as e:
@@ -518,7 +515,7 @@ def on_select_and_update_label(event, result_label, combo_box, file_type):
 # Function to handle the radio button selection
 def update_pattern_selection():
     if pattern_selection.get() == "Real":
-        root.geometry("600x250")
+        root.geometry("625x200")
         # Enable real pattern combo box and disable custom pattern inputs
         real_pattern_combo.config(state="readonly")        
         # Show real pattern label and combo box
@@ -535,7 +532,7 @@ def update_pattern_selection():
         spikes_checkbox.grid_remove()
         spikes_checkbox_label.grid_remove()
     else:
-        root.geometry("750x350")
+        root.geometry("840x275")
         # Disable real pattern combo box and enable custom pattern inputs
         real_pattern_label.grid_remove()
         real_pattern_combo.grid_remove()
@@ -556,93 +553,95 @@ def validate_numeric_input(P):
 
 # Main window setup
 root = tk.Tk()
-root.title("Bitcoin Transaction Generator")
+root.title("UTXO-based Transaction Generator")
 root.geometry("800x350") #Window size
 root.resizable(False, False)  # Prevent window resizing
 
 # Register validation function
 vcmd = (root.register(validate_numeric_input), '%P')
 
-# Text box for number of transactions
-tx_count_label = tk.Label(root, text="Number of Transactions:")
-tx_count_label.grid(row=0, column=0, padx=5, pady=10, sticky=tk.W)
+# Define a common font
+label_font = ("Arial", 16, "normal")
+entry_font = ("Arial", 16, "normal")
 
-tx_count_text_box = tk.Entry(root, validate='key', validatecommand=vcmd)
-tx_count_text_box.grid(row=0, column=1, padx=5, pady=10, sticky=tk.W+tk.E)
+# Text box for number of transactions
+tx_count_label = tk.Label(root, text="Number of Transactions:", font=label_font)
+tx_count_label.grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
+
+tx_count_text_box = tk.Entry(root, font=entry_font, validate='key', validatecommand=vcmd)
+tx_count_text_box.grid(row=0, column=1, padx=5, pady=5, sticky=tk.W+tk.E)
 # Set the default value of 1000
 tx_count_text_box.insert(0, "1000")
 
 # Radio Button for pattern selection
-pattern_label = tk.Label(root, text="Transaction features based on...")
-pattern_label.grid(row=1, column=0, padx=5, pady=10, sticky=tk.W)
+pattern_label = tk.Label(root, text="Transaction features based on...", font=label_font)
+pattern_label.grid(row=1, column=0, padx=5, pady=5, sticky=tk.W)
 
 # Radio button variables
 pattern_selection = tk.StringVar(value="Real")  # Default to 'Real'
 
 # Real patterns radio button
-real_pattern_radio = tk.Radiobutton(root, text="Real patterns", variable=pattern_selection, value="Real", command=update_pattern_selection)
-real_pattern_radio.grid(row=1, column=1, padx=5, pady=10, sticky=tk.W)
+real_pattern_radio = tk.Radiobutton(root, text="Real patterns", variable=pattern_selection, value="Real", command=update_pattern_selection, font=label_font)
+real_pattern_radio.grid(row=1, column=1, padx=5, pady=5, sticky=tk.W)
 
 # Custom patterns radio button
-custom_pattern_radio = tk.Radiobutton(root, text="Custom patterns", variable=pattern_selection, value="Custom", command=update_pattern_selection)
-custom_pattern_radio.grid(row=1, column=2, padx=5, pady=10, sticky=tk.W)
+custom_pattern_radio = tk.Radiobutton(root, text="Custom patterns", variable=pattern_selection, value="Custom", command=update_pattern_selection, font=label_font)
+custom_pattern_radio.grid(row=1, column=2, padx=5, pady=5, sticky=tk.W)
 
 # Real patterns combo box
-real_pattern_label = tk.Label(root, text="Choose a real pattern:")
-real_pattern_label.grid(row=2, column=0, padx=5, pady=10, sticky=tk.W)
+real_pattern_label = tk.Label(root, text="Choose a real pattern:", font=label_font)
+real_pattern_label.grid(row=2, column=0, padx=5, pady=5, sticky=tk.W)
 
-real_pattern_combo = ttk.Combobox(root, values=["2023-Q4", "2023-Q3", "2023-Q2", "2023-Q1", "2022-Q4"], state="readonly")
-real_pattern_combo.grid(row=2, column=1, padx=5, pady=10)
-real_pattern_combo.set("2023-Q4")  # Set default selection
-
-real_pattern_combo.bind("<<ComboboxSelected>>", lambda event: on_select_and_update_label(event, result_input_count_label, real_pattern_combo, "real"))
+real_pattern_combo = ttk.Combobox(root, values=["2023-Q4", "2023-Q3", "2023-Q2", "2023-Q1", "2022-Q4"], state="readonly", font=label_font)
+real_pattern_combo.grid(row=2, column=1, padx=5, pady=5)
+real_pattern_combo.set("--select the pattern--")  # Set default selection
 
 # Custom pattern options (input/output and spikes)
 # Custom input
-input_count_label = tk.Label(root, text="Input Count Distribution:")
-input_count_label.grid(row=3, column=0, padx=5, pady=10, sticky=tk.W)
+input_count_label = tk.Label(root, text="Input Count Distribution:", font=label_font)
+input_count_label.grid(row=3, column=0, padx=5, pady=5, sticky=tk.W)
 
-input_count_combo = ttk.Combobox(root, values=["custom-file", "2023-Q4", "2023-Q3", "2023-Q2", "2023-Q1", "2022-Q4"], state="readonly")
-input_count_combo.grid(row=3, column=1, padx=5, pady=10)
-input_count_combo.set("---select the pattern---")
+input_count_combo = ttk.Combobox(root, values=["custom-file", "2023-Q4", "2023-Q3", "2023-Q2", "2023-Q1", "2022-Q4"], state="readonly", font=label_font)
+input_count_combo.grid(row=3, column=1, padx=5, pady=5)
+input_count_combo.set("--select the pattern--")
 
-result_input_count_label = tk.Label(root, text="(Adjust distribution parameters)")
-result_input_count_label.grid(row=3, column=2, padx=5, pady=10, sticky=tk.W)
+result_input_count_label = tk.Label(root, text="(Adjust distribution parameters)", font=label_font)
+result_input_count_label.grid(row=3, column=2, padx=5, pady=5, sticky=tk.W)
 
 input_count_combo.bind("<<ComboboxSelected>>", lambda event: on_select_and_update_label(event, result_input_count_label, input_count_combo, "input"))
 
 # Custom output
-output_count_label = tk.Label(root, text="Output Count Distribution:")
-output_count_label.grid(row=4, column=0, padx=5, pady=10, sticky=tk.W)
+output_count_label = tk.Label(root, text="Output Count Distribution:", font=label_font)
+output_count_label.grid(row=4, column=0, padx=5, pady=5, sticky=tk.W)
 
-output_count_combo = ttk.Combobox(root, values=["custom-file", "2023-Q4", "2023-Q3"], state="readonly")
-output_count_combo.grid(row=4, column=1, padx=5, pady=10)
-output_count_combo.set("---select the pattern---")
+output_count_combo = ttk.Combobox(root, values=["custom-file", "2023-Q4", "2023-Q3"], state="readonly", font=label_font)
+output_count_combo.grid(row=4, column=1, padx=5, pady=5)
+output_count_combo.set("--select the pattern--")
 
-result_output_count_label = tk.Label(root, text="(Adjust distribution parameters)")
-result_output_count_label.grid(row=4, column=2, padx=5, pady=10, sticky=tk.W)
+result_output_count_label = tk.Label(root, text="(Adjust distribution parameters)", font=label_font)
+result_output_count_label.grid(row=4, column=2, padx=5, pady=5, sticky=tk.W)
 
 output_count_combo.bind("<<ComboboxSelected>>", lambda event: on_select_and_update_label(event, result_output_count_label, output_count_combo, "output"))
 
 # Spikes Checkbox
 spikes_checkbox_var = tk.BooleanVar(value=True)
-spikes_checkbox = tk.Checkbutton(root, text="Include spikes in distributions", variable=spikes_checkbox_var)
-spikes_checkbox.grid(row=5, column=0, padx=5, pady=10, sticky=tk.W)
+spikes_checkbox = tk.Checkbutton(root, text="Include spikes in distributions", variable=spikes_checkbox_var, font=label_font)
+spikes_checkbox.grid(row=5, column=0, padx=5, pady=5, sticky=tk.W)
 
-spikes_checkbox_label = tk.Label(root, text="(Transaction consolidation and batching)")
-spikes_checkbox_label.grid(row=5, column=1, padx=5, pady=10, sticky=tk.W)
+spikes_checkbox_label = tk.Label(root, text="(Transaction consolidation and batching)", font=label_font)
+spikes_checkbox_label.grid(row=5, column=1, padx=5, pady=5, sticky=tk.W)
 
 # UTXO Checkbox
 utxo_checkbox_var = tk.BooleanVar(value=True)
-utxo_checkbox = tk.Checkbutton(root, text="Include UTXO generation", variable=utxo_checkbox_var)
-utxo_checkbox.grid(row=6, column=0, padx=5, pady=10, sticky=tk.W)
+utxo_checkbox = tk.Checkbutton(root, text="Include UTXO generation", variable=utxo_checkbox_var, font=label_font)
+utxo_checkbox.grid(row=6, column=0, padx=5, pady=5, sticky=tk.W)
 
-utxo_checkbox_label = tk.Label(root, text="(Generate UTXO files too)")
-utxo_checkbox_label.grid(row=6, column=1, padx=5, pady=10, sticky=tk.W)
+utxo_checkbox_label = tk.Label(root, text="(Generate UTXO files too)", font=label_font)
+utxo_checkbox_label.grid(row=6, column=1, padx=5, pady=5, sticky=tk.W)
 
 # Generate Transactions Button
-button = tk.Button(root, text="Generate Transactions", command=run_task)
-button.grid(row=7, column=0, columnspan=3, pady=20)
+button = tk.Button(root, text="Generate Transactions", command=run_task, font=label_font, bg="green")
+button.grid(row=7, column=0, columnspan=3, pady=10)
 
 # Initialize the state based on default radio button selection
 update_pattern_selection()
